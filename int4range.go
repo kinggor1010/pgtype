@@ -2,6 +2,7 @@ package pgtype
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgio"
@@ -264,4 +265,15 @@ func (dst *Int4range) Scan(src interface{}) error {
 // Value implements the database/sql/driver Valuer interface.
 func (src Int4range) Value() (driver.Value, error) {
 	return EncodeValueText(src)
+}
+
+// UnmarshalJSON implements json.Unmarshaler interface.
+func (dst *Int4range) UnmarshalJSON(b []byte) error {
+	var v string
+	err := json.Unmarshal(b, &v)
+	if err != nil {
+		return err
+	}
+
+	return dst.Scan(v)
 }
