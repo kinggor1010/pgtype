@@ -7,24 +7,39 @@ import (
 
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgtype/testutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInetTranscode(t *testing.T) {
-	for _, pgTypeName := range []string{"inet", "cidr"} {
-		testutil.TestSuccessfulTranscode(t, pgTypeName, []interface{}{
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "0.0.0.0/32"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "127.0.0.1/32"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "12.34.56.0/32"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "192.168.1.0/24"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "255.0.0.0/8"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "255.255.255.255/32"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "::/128"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "::/0"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "::1/128"), Status: pgtype.Present},
-			&pgtype.Inet{IPNet: mustParseCIDR(t, "2607:f8b0:4009:80b::200e/128"), Status: pgtype.Present},
-			&pgtype.Inet{Status: pgtype.Null},
-		})
-	}
+	testutil.TestSuccessfulTranscode(t, "inet", []interface{}{
+		&pgtype.Inet{IPNet: mustParseInet(t, "0.0.0.0/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "127.0.0.1/8"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "12.34.56.65/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "192.168.1.16/24"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "255.0.0.0/8"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "255.255.255.255/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "::1/64"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "::/0"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "::1/128"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseInet(t, "2607:f8b0:4009:80b::200e/64"), Status: pgtype.Present},
+		&pgtype.Inet{Status: pgtype.Null},
+	})
+}
+
+func TestCidrTranscode(t *testing.T) {
+	testutil.TestSuccessfulTranscode(t, "cidr", []interface{}{
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "0.0.0.0/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "127.0.0.1/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "12.34.56.0/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "192.168.1.0/24"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "255.0.0.0/8"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "255.255.255.255/32"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "::/128"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "::/0"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "::1/128"), Status: pgtype.Present},
+		&pgtype.Inet{IPNet: mustParseCIDR(t, "2607:f8b0:4009:80b::200e/128"), Status: pgtype.Present},
+		&pgtype.Inet{Status: pgtype.Null},
+	})
 }
 
 func TestInetSet(t *testing.T) {
@@ -35,6 +50,7 @@ func TestInetSet(t *testing.T) {
 		{source: mustParseCIDR(t, "127.0.0.1/32"), result: pgtype.Inet{IPNet: mustParseCIDR(t, "127.0.0.1/32"), Status: pgtype.Present}},
 		{source: mustParseCIDR(t, "127.0.0.1/32").IP, result: pgtype.Inet{IPNet: mustParseCIDR(t, "127.0.0.1/32"), Status: pgtype.Present}},
 		{source: "127.0.0.1/32", result: pgtype.Inet{IPNet: mustParseCIDR(t, "127.0.0.1/32"), Status: pgtype.Present}},
+		{source: "1.2.3.4/24", result: pgtype.Inet{IPNet: &net.IPNet{IP: net.ParseIP("1.2.3.4"), Mask: net.CIDRMask(24, 32)}, Status: pgtype.Present}},
 		{source: net.ParseIP(""), result: pgtype.Inet{Status: pgtype.Null}},
 	}
 
@@ -45,8 +61,10 @@ func TestInetSet(t *testing.T) {
 			t.Errorf("%d: %v", i, err)
 		}
 
-		if !reflect.DeepEqual(r, tt.result) {
-			t.Errorf("%d: expected %v to convert to %v, but it was %v", i, tt.source, tt.result, r)
+		assert.Equalf(t, tt.result.Status, r.Status, "%d: Status", i)
+		if tt.result.Status == pgtype.Present {
+			assert.Equalf(t, tt.result.IPNet.Mask, r.IPNet.Mask, "%d: IP", i)
+			assert.Truef(t, tt.result.IPNet.IP.Equal(r.IPNet.IP), "%d: Mask", i)
 		}
 	}
 }

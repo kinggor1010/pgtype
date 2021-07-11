@@ -275,5 +275,36 @@ func (dst *Int4range) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	if v == "" {
+		*dst = Int4range{Status: Null}
+		return nil
+	}
+
 	return dst.Scan(v)
+}
+
+// MarshalJSON implements json.Unmarshaler interface.
+func (src *Int4range) MarshalJSON() ([]byte, error) {
+	switch src.Status {
+	case Null:
+		return []byte("null"), nil
+	case Undefined:
+		return []byte(`null`), nil
+	}
+	if src.Status != Present {
+		return nil, errBadStatus
+	}
+
+	b := make([]byte, 0, 32)
+	b = append(b, '"')
+	b, err := src.EncodeText(nil, b)
+	b = append(b, '"')
+	if err != nil {
+		return nil, err
+	}
+	if b == nil {
+		return nil, nil
+	}
+
+	return b, err
 }

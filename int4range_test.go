@@ -3,6 +3,7 @@ package pgtype_test
 import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgtype/testutil"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -34,16 +35,30 @@ func TestInt4rangeUnmarshalJSON(t *testing.T) {
 		{source: `"empty"`, result: pgtype.Int4range{LowerType: pgtype.Empty, UpperType: pgtype.Empty, Status: pgtype.Present}},
 		{source: `"[10,20]"`, result: pgtype.Int4range{Lower: pgtype.Int4{Int: 10, Status: pgtype.Present}, LowerType: pgtype.Inclusive, Upper: pgtype.Int4{Int: 20, Status: pgtype.Present}, UpperType: pgtype.Inclusive, Status: pgtype.Present}},
 		{source: `"[-10,)"`, result: pgtype.Int4range{Lower: pgtype.Int4{Int: -10, Status: pgtype.Present}, LowerType: pgtype.Inclusive, UpperType: pgtype.Unbounded, Status: pgtype.Present}},
+		{source: `null`, result: pgtype.Int4range{Status: pgtype.Null}},
 	}
-	for i, tt := range successfulTests {
+	for _, tt := range successfulTests {
 		var r pgtype.Int4range
 		err := r.UnmarshalJSON([]byte(tt.source))
-		if err != nil {
-			t.Errorf("%d: %v", i, err)
-		}
+		assert.NoError(t, err)
+		assert.ObjectsAreEqualValues(tt.result, r)
+	}
+}
 
-		if  r.Status != tt.result.Status {
-			t.Errorf("%d: expected %v to convert to %v, but it was %v", i, tt.source, tt.result, r)
-		}
+func TestInt4rangeMarshalJSON(t *testing.T) {
+	successfulTests := []struct {
+		source pgtype.Int4range
+		result string
+	}{
+		{source: pgtype.Int4range{LowerType: pgtype.Empty, UpperType: pgtype.Empty, Status: pgtype.Present}, result: `"empty"`},
+		{source: pgtype.Int4range{Lower: pgtype.Int4{Int: 10, Status: pgtype.Present}, LowerType: pgtype.Inclusive, Upper: pgtype.Int4{Int: 20, Status: pgtype.Present}, UpperType: pgtype.Inclusive, Status: pgtype.Present}, result: `"[10,20]"`},
+		{source: pgtype.Int4range{Lower: pgtype.Int4{Int: -10, Status: pgtype.Present}, LowerType: pgtype.Inclusive, UpperType: pgtype.Unbounded, Status: pgtype.Present}, result: `"[-10,)"`},
+		{source: pgtype.Int4range{Status: pgtype.Null}, result: `null`},
+		{source: pgtype.Int4range{}, result: `null`},
+	}
+	for _, tt := range successfulTests {
+		b, err := tt.source.MarshalJSON()
+		assert.NoError(t, err)
+		assert.Equal(t, tt.result, string(b))
 	}
 }
